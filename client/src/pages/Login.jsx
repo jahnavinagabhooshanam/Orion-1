@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
+import Logo from '../components/Logo';
 
 export default function Login() {
   const { login } = useAuth();
@@ -24,17 +25,20 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-darker p-4">
-      <div className="glass-panel p-8 w-full max-w-md relative overflow-hidden">
+      <div className="glass-panel p-8 w-full max-w-md relative overflow-hidden border-2 border-primary/20">
         {/* Decorative gradient */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-accent rounded-full blur-3xl opacity-20 pointer-events-none"></div>
         <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-primary rounded-full blur-3xl opacity-20 pointer-events-none"></div>
 
-        <div className="flex flex-col items-center mb-8 relative z-10">
-          <div className="w-16 h-16 bg-darker rounded-full flex items-center justify-center border border-gray-700 shadow-[0_0_15px_rgba(59,130,246,0.5)] mb-4">
-            <Shield className="text-primary w-8 h-8" />
+        <div className="flex flex-col items-center mb-10 relative z-10">
+          <div className="scale-125 mb-4">
+            <Logo />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-widest">ORION</h1>
-          <p className="text-gray-400 text-sm mt-2 text-center uppercase tracking-wider">Organizational Risk Intelligence</p>
+          <div className="text-center mt-4">
+            <h1 className="text-4xl font-black text-white tracking-[0.2em]">ORION</h1>
+            <div className="h-[2px] w-12 bg-primary mx-auto mt-2 mb-3"></div>
+            <p className="text-gray-400 text-[10px] uppercase tracking-[0.3em]">Organizational Risk Intelligence</p>
+          </div>
         </div>
 
         {error && (
