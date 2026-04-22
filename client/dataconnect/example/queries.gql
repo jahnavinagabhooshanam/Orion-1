@@ -1,0 +1,44 @@
+query ListRecentTransactions @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  transactions(orderBy: [{createdAt: DESC}], limit: 10) {
+    id
+    amount
+    currency
+    status
+    createdAt
+    customer {
+      username
+    }
+  }
+}
+
+mutation CreateNewUser($username: String!, $email: String!, $passwordHash: String!) @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  user_insert(data: {
+    username: $username,
+    email: $email,
+    passwordHash: $passwordHash,
+    role: "User",
+    createdAt_expr: "request.time"
+  })
+}
+
+query GetUserFraudAlerts @auth(level: USER) {
+  user(key: {id_expr: "auth.uid"}) {
+    username
+    fraudAlerts_on_resolvedBy {
+      alertId
+      status
+      createdAt
+      transaction {
+        transactionId
+        amount
+      }
+    }
+  }
+}
+
+mutation UpdateRuleStatus($ruleId: UUID!, $isEnabled: Boolean!) @auth(expr: "auth.token.role == 'Admin'") {
+  rule_update(key: {id: $ruleId}, data: {
+    isEnabled: $isEnabled,
+    lastModifiedAt_expr: "request.time"
+  })
+}

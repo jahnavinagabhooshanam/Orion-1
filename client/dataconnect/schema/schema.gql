@@ -1,0 +1,50 @@
+type User @table {
+  username: String!
+  email: String!
+  role: String!
+  createdAt: Timestamp!
+  passwordHash: String
+  lastLogin: Timestamp
+}
+
+type Rule @table {
+  name: String!
+  criteriaJson: String!
+  priority: Int!
+  createdAt: Timestamp!
+  isEnabled: Boolean!
+  description: String
+  lastModifiedAt: Timestamp
+  creator: User
+}
+
+type Transaction @table {
+  transactionId: String!
+  amount: Float!
+  currency: String!
+  status: String!
+  createdAt: Timestamp!
+  sourceIp: String
+  deviceInfo: String
+  billingAddress: String
+  shippingAddress: String
+  paymentMethodType: String
+  customer: User
+}
+
+type FraudAlert @table {
+  alertId: String!
+  status: String!
+  createdAt: Timestamp!
+  notes: String
+  resolvedAt: Timestamp
+  transaction: Transaction!
+  resolvedBy: User
+}
+
+type RuleTrigger @table(key: ["fraudAlert", "rule"]) {
+  triggeredAt: Timestamp!
+  triggerDetails: String
+  fraudAlert: FraudAlert!
+  rule: Rule!
+}

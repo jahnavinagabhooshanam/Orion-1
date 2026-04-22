@@ -1,0 +1,96 @@
+mutation CreateDemoData @transaction @auth(level: USER, insecureReason: "This is seed data and should only be run by an authenticated user.") {
+  user_insertMany(data: [
+    {
+      id: "user1",
+      username: "john.doe",
+      email: "john.doe@example.com",
+      role: "admin",
+      createdAt: "2024-01-01T10:00:00Z"
+    },
+    {
+      id: "user2",
+      username: "jane.smith",
+      email: "jane.smith@example.com",
+      role: "user",
+      createdAt: "2024-01-02T11:00:00Z"
+    }
+  ])
+  transaction_insertMany(data: [
+    {
+      id: "transaction1",
+      customerId: "user1",
+      transactionId: "TRX001",
+      amount: 100.50,
+      currency: "USD",
+      status: "completed",
+      createdAt: "2024-01-03T12:00:00Z",
+      sourceIp: "192.168.1.1",
+      paymentMethodType: "credit_card"
+    },
+    {
+      id: "transaction2",
+      customerId: "user2",
+      transactionId: "TRX002",
+      amount: 25.75,
+      currency: "EUR",
+      status: "pending",
+      createdAt: "2024-01-04T13:00:00Z",
+      deviceInfo: "mobile_app",
+      paymentMethodType: "paypal"
+    }
+  ])
+  fraudAlert_insertMany(data: [
+    {
+      id: "alert1",
+      transactionId: "transaction1",
+      alertId: "FAD001",
+      status: "new",
+      createdAt: "2024-01-03T12:05:00Z",
+      notes: "High-value transaction from new IP address."
+    },
+    {
+      id: "alert2",
+      transactionId: "transaction2",
+      alertId: "FAD002",
+      status: "under_review",
+      createdAt: "2024-01-04T13:10:00Z",
+      resolvedById: "user1",
+      resolvedAt: "2024-01-04T14:00:00Z",
+      notes: "Payment method unusual for this user."
+    }
+  ])
+  rule_insertMany(data: [
+    {
+      id: "rule1",
+      name: "High Value Transaction Alert",
+      criteriaJson: "{\"amount\": {\"gt\": 100}}",
+      priority: 1,
+      createdAt: "2024-01-01T09:00:00Z",
+      isEnabled: true,
+      description: "Triggers for transactions exceeding $100."
+    },
+    {
+      id: "rule2",
+      name: "New IP Address Alert",
+      criteriaJson: "{\"sourceIp\": {\"ne\": \"previous_ips\"}}",
+      priority: 2,
+      createdAt: "2024-01-01T09:30:00Z",
+      isEnabled: true,
+      description: "Triggers for transactions from a new IP address."
+    }
+  ])
+  ruleTrigger_insertMany(data: [
+    {
+      fraudAlertId: "alert1",
+      ruleId: "rule1",
+      triggeredAt: "2024-01-03T12:05:00Z",
+      triggerDetails: "Transaction amount exceeded rule threshold."
+    },
+    {
+      fraudAlertId: "alert1",
+      ruleId: "rule2",
+      triggeredAt: "2024-01-03T12:05:00Z",
+      triggerDetails: "Transaction initiated from a new IP address."
+    }
+  ])
+}

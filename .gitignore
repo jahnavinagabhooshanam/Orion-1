@@ -1,0 +1,26 @@
+# Dependency Directories
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build Directories
+dist/
+build/
+client/dist/
+
+# Environment Variables (CRITICAL: Do not push secrets)
+.env
+client/.env
+server/.env
+.env.local
+
+# IDE / System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Documentation / Scratch
+implementation_plan.md
+walkthrough.md
+task.md

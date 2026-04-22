@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-darker text-gray-100;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-dark/80 backdrop-blur-md border border-gray-800 rounded-xl shadow-xl;
+  }
+  .btn-primary {
+    @apply px-4 py-2 bg-primary hover:bg-blue-600 text-white rounded-lg transition-colors duration-200 font-medium;
+  }
+  .btn-danger {
+    @apply px-4 py-2 bg-danger hover:bg-red-600 text-white rounded-lg transition-colors duration-200 font-medium;
+  }
+  .btn-accent {
+    @apply px-4 py-2 bg-accent hover:bg-purple-600 text-white rounded-lg transition-colors duration-200 font-medium;
+  }
+  .logo-gradient {
+    background: linear-gradient(135deg, #3b82f6 0%, #a855f7 50%, #10b981 100%);
+  }
+  .shadow-glow {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a; 
+}
+::-webkit-scrollbar-thumb {
+  background: #334155; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569; 
+}
+
+/* Micro-animations */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes flashPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; box-shadow: 0 0 15px currentColor; }
+}
+
+@keyframes neonGlow {
+  0%, 100% { box-shadow: 0 0 5px currentColor; }
+  50% { box-shadow: 0 0 20px currentColor; }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+.animate-flash {
+  animation: flashPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-glow {
+  animation: neonGlow 2s ease-in-out infinite;
+}
+
+.tooltip-trigger {
+  position: relative;
+}
+.tooltip-trigger:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 5px;
+  padding: 4px 8px;
+  background-color: #1e293b;
+  color: #fff;
+  font-size: 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  border: 1px solid #334155;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
