@@ -1,9 +1,14 @@
+import os
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
 from model import detection_agent
 
 app = FastAPI(title="ORION ML Engine", description="Microservice for AI Risk Analysis")
+
+@app.get("/")
+def health_check():
+    return {"status": "Neural Engine Active", "version": "1.0.0"}
 
 class TransactionInput(BaseModel):
     transaction_id: str
@@ -21,4 +26,5 @@ def predict_risk(tx: TransactionInput):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
