@@ -16,8 +16,13 @@ const io = new Server(server, {
   }
 });
 
-app.use(cors());
 app.use(express.json());
+app.use(cors());
+
+// Root Health Check (For Render monitoring)
+app.get('/', (req, res) => {
+  res.send('<h1>ORION BACKEND: ONLINE</h1><p>Neural Risk Intelligence Engine is active and monitoring vectors.</p>');
+});
 
 // Pass io to routes
 apiRoutes.setIo(io);
