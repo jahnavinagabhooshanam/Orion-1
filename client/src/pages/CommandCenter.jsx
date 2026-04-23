@@ -11,6 +11,7 @@ export default function CommandCenter() {
   const [transactions, setTransactions] = useState([]);
   const [systemStatus, setSystemStatus] = useState('ARMED');
   const [toast, setToast] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchTransactions = () => {
     axios.get(`${socketUrl}/api/transactions`).then(res => {
@@ -19,7 +20,11 @@ export default function CommandCenter() {
       res.data.forEach(t => seen.set(t.transaction_id, t));
       const unique = Array.from(seen.values()).filter(t => t.risk_score >= 20);
       setTransactions(unique);
-    }).catch(console.error);
+      setIsLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setIsLoading(false);
+    });
   };
 
   useEffect(() => {
@@ -176,6 +181,19 @@ export default function CommandCenter() {
         </div>
         
         <div className="flex-1 overflow-auto">
+          {isLoading ? (
+            // Skeleton loading state
+            <div className="p-4 flex flex-col gap-3 animate-pulse">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 p-4 border-b border-gray-800/50">
+                  <div className="h-3 bg-gray-700 rounded w-48"></div>
+                  <div className="h-3 bg-gray-700 rounded w-32"></div>
+                  <div className="h-3 bg-gray-700 rounded w-16 ml-8"></div>
+                  <div className="h-5 bg-gray-700 rounded-full w-28 ml-auto"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <table className="w-full text-left border-collapse">
             <thead className="bg-darker sticky top-0 z-10 text-xs uppercase tracking-wider text-gray-500">
               <tr>
@@ -187,7 +205,7 @@ export default function CommandCenter() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/50">
-              {filteredTransactions.length === 0 ? (
+              {filteredTransactions.length === 0 && !isLoading ? (
                 <tr>
                   <td colSpan="5" className="p-8 text-center text-gray-500">
                     <Cpu className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -253,6 +271,7 @@ export default function CommandCenter() {
               )}
             </tbody>
           </table>
+          )}
         </div>
       </div>
     </div>

@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [selectedTx, setSelectedTx] = useState(null);
   const [demoMode, setDemoMode] = useState(false);
   const [guidedStep, setGuidedStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
   const [chartData, setChartData] = useState({
     labels: [],
     datasets: [{
@@ -64,12 +65,13 @@ export default function Dashboard() {
     // Initial fetch
     axios.get(`${socketUrl}/api/transactions`).then(res => {
       setTransactions(res.data);
+      setIsLoading(false);
       if(res.data.length > 0) {
         setAnomalies(res.data.filter(t => t.is_anomaly).length);
         const avg = res.data.reduce((acc, curr) => acc + curr.risk_score, 0) / res.data.length;
         setGlobalScore(avg || 15);
       }
-    }).catch(console.error);
+    }).catch(err => { console.error(err); setIsLoading(false); });
 
     const socket = io(socketUrl);
     
@@ -312,15 +314,27 @@ export default function Dashboard() {
 
             {/* Top Metrics Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <MetricCard title="Analyzed Transactions" value={transactions.length} icon={Target} color="text-primary" />
-              <MetricCard title="Anomalies Detected" value={anomalies} icon={AlertTriangle} color="text-danger" isAlert={anomalies > 5} />
-              <MetricCard 
-                title="Global Risk Index" 
-                value={globalScore.toFixed(1)} 
-                subtext="Current ecosystem stability" 
-                icon={ShieldCheck} 
-                color={globalScore > 70 ? 'text-danger' : globalScore > 40 ? 'text-warning' : 'text-success'} 
-              />
+              {isLoading ? (
+                // Skeleton metric cards
+                [...Array(3)].map((_, i) => (
+                  <div key={i} className="glass-panel p-6 animate-pulse">
+                    <div className="h-3 bg-gray-700 rounded w-40 mb-4"></div>
+                    <div className="h-8 bg-gray-700 rounded w-20"></div>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <MetricCard title="Analyzed Transactions" value={transactions.length} icon={Target} color="text-primary" />
+                  <MetricCard title="Anomalies Detected" value={anomalies} icon={AlertTriangle} color="text-danger" isAlert={anomalies > 5} />
+                  <MetricCard 
+                    title="Global Risk Index" 
+                    value={globalScore.toFixed(1)} 
+                    subtext="Current ecosystem stability" 
+                    icon={ShieldCheck} 
+                    color={globalScore > 70 ? 'text-danger' : globalScore > 40 ? 'text-warning' : 'text-success'} 
+                  />
+                </>
+              )}
             </div>
 
             {/* Middle Row (Chart + Tools) */}

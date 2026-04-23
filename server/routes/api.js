@@ -14,6 +14,11 @@ router.setIo = (io) => {
   ioInstance = io;
 };
 
+// Health check — used by the frontend keep-alive to prevent Render cold starts
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', ts: Date.now() });
+});
+
 // Process single transaction logic
 const processTransaction = async (txData) => {
   try {
