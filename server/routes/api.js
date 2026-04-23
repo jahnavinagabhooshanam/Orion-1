@@ -142,12 +142,13 @@ router.post('/upload', upload.single('file'), (req, res) => {
       }
 
       const processed = [];
-      for (const item of results) {
-        try {
-          const tx = await processTransaction(item);
-          processed.push(tx);
-        } catch (err) {
-          // silently skip or push to errors if ML fails
+      // Process in chunks of 10 to significantly speed up ingestion while maintaining stability
+      for (let i = 0; i < results.length; i += 10) {
+        const chunk = results.slice(i, i + 10);
+        const promises = chunk.map(item => processTransaction(item).catch(() => null));
+        const resolved = await Promise.all(promises);
+        for (const tx of resolved) {
+          if (tx) processed.push(tx);
         }
       }
 
