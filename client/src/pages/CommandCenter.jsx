@@ -81,7 +81,16 @@ export default function CommandCenter() {
     // Decision Filter
     let matchesDecision = true;
     if (decisionFilter !== 'ALL') {
-      matchesDecision = tx.status === decisionFilter;
+      const statusStr = (tx.status || '').toUpperCase();
+      if (decisionFilter === 'BLOCK TRANSACTION') {
+        matchesDecision = statusStr.includes('BLOCK');
+      } else if (decisionFilter === 'FLAG FOR REVIEW') {
+        matchesDecision = statusStr.includes('FLAG');
+      } else if (decisionFilter === 'ALLOW') {
+        matchesDecision = statusStr.includes('ALLOW');
+      } else {
+        matchesDecision = statusStr === decisionFilter;
+      }
     }
 
     return matchesSearch && matchesRisk && matchesDecision;
