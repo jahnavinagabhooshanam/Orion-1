@@ -233,4 +233,27 @@ router.get('/transactions', async (req, res) => {
   }
 });
 
+// Update transaction status (Manual Override)
+router.put('/transactions/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const tx = await Transaction.findOneAndUpdate(
+      { transaction_id: id }, 
+      { status }, 
+      { new: true }
+    );
+    
+    if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+    
+    if (ioInstance) {
+      ioInstance.emit('transaction_updated', tx);
+    }
+    
+    res.json(tx);
+  } catch (err) {
+    res.status(500).json({ error: 'Database update failed' });
+  }
+});
+
 module.exports = router;

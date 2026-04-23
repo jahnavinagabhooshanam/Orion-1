@@ -32,7 +32,9 @@ export default function CommandCenter() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleOverride = (id, action) => {
+  const handleOverride = async (id, action) => {
+    const newStatus = action === 'block' ? 'MANUALLY BLOCKED' : 'MANUALLY ALLOWED';
+
     // Show toast
     setToast('Override accepted');
     setTimeout(() => {
@@ -45,11 +47,19 @@ export default function CommandCenter() {
       if (tx.transaction_id === id) {
         return { 
           ...tx, 
-          status: action === 'block' ? 'MANUALLY BLOCKED' : 'MANUALLY ALLOWED' 
+          status: newStatus
         };
       }
       return tx;
     }));
+
+    // Persist to backend database
+    try {
+      await axios.put(`${socketUrl}/api/transactions/${id}/status`, { status: newStatus });
+    } catch (err) {
+      console.error('Failed to override transaction status in backend:', err);
+      // We could revert the UI state here, but for this demo, logging is sufficient.
+    }
   };
 
   const [searchTerm, setSearchTerm] = useState('');
