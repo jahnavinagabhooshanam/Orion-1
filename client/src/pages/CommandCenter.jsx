@@ -12,23 +12,19 @@ export default function CommandCenter() {
   const [systemStatus, setSystemStatus] = useState('ARMED');
   const [toast, setToast] = useState(null);
 
-  useEffect(() => {
-    // Fetch initial data
+  const fetchTransactions = () => {
     axios.get(`${socketUrl}/api/transactions`).then(res => {
-      // Filter for medium to high risk transactions
-      const risky = res.data.filter(t => t.risk_score >= 20);
-      setTransactions(risky);
+      // Deduplicate by transaction_id, keeping the last (most recent) occurrence
+      const seen = new Map();
+      res.data.forEach(t => seen.set(t.transaction_id, t));
+      const unique = Array.from(seen.values()).filter(t => t.risk_score >= 20);
+      setTransactions(unique);
     }).catch(console.error);
-    
-    // We can also connect to socket to get live updates if desired
-    // For simplicity, we just fetch once or poll, but let's use a simple interval to fetch
-    const interval = setInterval(() => {
-      axios.get(`${socketUrl}/api/transactions`).then(res => {
-        const risky = res.data.filter(t => t.risk_score >= 20);
-        setTransactions(risky);
-      }).catch(console.error);
-    }, 5000);
+  };
 
+  useEffect(() => {
+    fetchTransactions();
+    const interval = setInterval(fetchTransactions, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -67,29 +63,33 @@ export default function CommandCenter() {
   const [decisionFilter, setDecisionFilter] = useState('ALL');
 
   const filteredTransactions = transactions.filter(tx => {
-    // Search
-    const matchesSearch = tx.transaction_id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          tx.user_id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          tx.account_id.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Risk Filter
-    let matchesRisk = true;
-    if (riskFilter === 'LOW') matchesRisk = tx.risk_score < 40;
-    else if (riskFilter === 'MEDIUM') matchesRisk = tx.risk_score >= 40 && tx.risk_score < 70;
-    else if (riskFilter === 'HIGH') matchesRisk = tx.risk_score >= 70;
+    // Search filter
+    const s = searchTerm.toLowerCase();
+    const matchesSearch = !s ||
+      (tx.transaction_id || '').toLowerCase().includes(s) ||
+      (tx.user_id || '').toLowerCase().includes(s) ||
+      (tx.account_id || '').toLowerCase().includes(s);
 
-    // Decision Filter
+    // Risk filter
+    let matchesRisk = true;
+    const score = Number(tx.risk_score);
+    if (riskFilter === 'LOW')    matchesRisk = score < 40;
+    else if (riskFilter === 'MEDIUM') matchesRisk = score >= 40 && score < 70;
+    else if (riskFilter === 'HIGH')   matchesRisk = score >= 70;
+
+    // Decision filter — use strict keyword matching
     let matchesDecision = true;
     if (decisionFilter !== 'ALL') {
-      const statusStr = (tx.status || '').toUpperCase();
-      if (decisionFilter === 'BLOCK TRANSACTION') {
-        matchesDecision = statusStr.includes('BLOCK');
-      } else if (decisionFilter === 'FLAG FOR REVIEW') {
-        matchesDecision = statusStr.includes('FLAG');
-      } else if (decisionFilter === 'ALLOW') {
-        matchesDecision = statusStr.includes('ALLOW');
-      } else {
-        matchesDecision = statusStr === decisionFilter;
+      const status = (tx.status || '').toUpperCase().trim();
+      if (decisionFilter === 'BLOCKED') {
+        // matches 'BLOCK TRANSACTION' and 'MANUALLY BLOCKED'
+        matchesDecision = status.includes('BLOCK');
+      } else if (decisionFilter === 'FLAGGED') {
+        // matches 'FLAG FOR REVIEW'
+        matchesDecision = status.includes('FLAG');
+      } else if (decisionFilter === 'ALLOWED') {
+        // matches 'ALLOW' and 'MANUALLY ALLOWED'
+        matchesDecision = status.includes('ALLOW');
       }
     }
 
@@ -156,9 +156,9 @@ export default function CommandCenter() {
                 className="bg-transparent text-sm text-gray-300 focus:outline-none uppercase"
               >
                 <option value="ALL">All Decisions</option>
-                <option value="BLOCK TRANSACTION">Blocked</option>
-                <option value="FLAG FOR REVIEW">Flagged</option>
-                <option value="ALLOW">Allowed</option>
+                <option value="BLOCKED">Blocked</option>
+                <option value="FLAGGED">Flagged</option>
+                <option value="ALLOWED">Allowed</option>
               </select>
             </div>
 
