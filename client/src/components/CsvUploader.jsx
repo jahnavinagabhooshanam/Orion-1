@@ -27,7 +27,9 @@ export default function CsvUploader() {
 
     try {
       setUploading(true);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const apiUrl = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
+      
       const res = await axios.post(`${apiUrl}/api/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -39,8 +41,19 @@ export default function CsvUploader() {
       });
       setFile(null);
     } catch (err) {
-      const msg = err.response?.data?.error || err.message;
-      setResult({ type: 'error', message: msg, details: err.response?.data?.details || err.response?.data?.errors });
+      console.error('Upload Error Details:', err);
+      const status = err.response?.status;
+      const errorData = err.response?.data?.error || err.response?.data?.message;
+      const msg = errorData || (status === 0 || !status ? 'Network Error: Backend unreachable or CORS blocked' : `Server Error: ${status} ${err.message}`);
+      
+      setResult({ 
+        type: 'error', 
+        message: msg, 
+        details: err.response?.data?.details || err.response?.data?.errors || [
+          'Verify the backend server is running and reachable.',
+          `Hitting: ${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/upload`
+        ] 
+      });
     } finally {
       setUploading(false);
     }

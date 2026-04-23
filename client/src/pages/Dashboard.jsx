@@ -36,7 +36,8 @@ ChartJS.register(
   Legend
 );
 
-const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const socketUrl = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
 
 export default function Dashboard() {
   const { currentUser } = useAuth();

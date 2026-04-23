@@ -23,7 +23,8 @@ export default function SimulationPanel() {
       
       await new Promise(r => setTimeout(r, 400));
       
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const apiUrl = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
       await axios.post(`${apiUrl}/api/simulate/${type}`);
       
       setStatusMessage('Decision executed');
