@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
-import { ShieldCheck, Target, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Target, AlertTriangle } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import LiveStream from '../components/LiveStream';
 import ExplainablePanel from '../components/ExplainablePanel';
@@ -49,6 +49,9 @@ export default function Dashboard() {
   const [demoMode, setDemoMode] = useState(false);
   const [guidedStep, setGuidedStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  // Suppress Sentinel overlay during CSV batch ingestion
+  const ingestingSuppressed = useRef(false);
+  const suppressionTimer = useRef(null);
   const [chartData, setChartData] = useState({
     labels: [],
     datasets: [{
@@ -62,7 +65,20 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    // Initial fetch
+    // Load from cache INSTANTLY before API responds
+    try {
+      const cached = localStorage.getItem('orion_tx_cache');
+      if (cached) {
+        const data = JSON.parse(cached);
+        setTransactions(data);
+        setIsLoading(false);
+        setAnomalies(data.filter(t => t.is_anomaly).length);
+        const avg = data.reduce((acc, curr) => acc + curr.risk_score, 0) / (data.length || 1);
+        setGlobalScore(avg || 15);
+      }
+    } catch(e) {}
+
+    // Initial fetch — updates cache and state with fresh data
     axios.get(`${socketUrl}/api/transactions`).then(res => {
       setTransactions(res.data);
       setIsLoading(false);
@@ -70,6 +86,8 @@ export default function Dashboard() {
         setAnomalies(res.data.filter(t => t.is_anomaly).length);
         const avg = res.data.reduce((acc, curr) => acc + curr.risk_score, 0) / res.data.length;
         setGlobalScore(avg || 15);
+        // Save to cache for instant load on next visit
+        try { localStorage.setItem('orion_tx_cache', JSON.stringify(res.data)); } catch(e) {}
       }
     }).catch(err => { console.error(err); setIsLoading(false); });
 
@@ -89,9 +107,21 @@ export default function Dashboard() {
         tx.confidence = (85 + Math.random() * 14).toFixed(1);
       }
 
-      setTransactions(prev => [tx, ...prev].slice(0, 50));
+      setTransactions(prev => {
+        const updated = [tx, ...prev].slice(0, 50);
+        // Detect rapid burst (CSV ingestion) — suppress Sentinel overlay
+        if (updated.length > prev.length) {
+          ingestingSuppressed.current = true;
+          if (suppressionTimer.current) clearTimeout(suppressionTimer.current);
+          suppressionTimer.current = setTimeout(() => {
+            ingestingSuppressed.current = false;
+          }, 8000); // suppress for 8s after last burst tx
+        }
+        return updated;
+      });
       
-      if (tx.risk_score > 70) {
+      // Only update global score and trigger Sentinel if NOT in a suppressed ingestion burst
+      if (tx.risk_score > 70 && !ingestingSuppressed.current) {
         setGuidedStep(4); // Score Generated
         setTimeout(() => setGuidedStep(5), 800); // Decision Taken
         setGlobalScore(tx.risk_score);
@@ -192,20 +222,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col min-h-screen bg-darker overflow-x-hidden">
-      {/* Sentinel Protocol Alert (The WOW Moment) */}
-      {globalScore > 90 && (
-        <div className="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center p-8 bg-red-500/5 animate-pulse">
-          <div className="absolute inset-0 border-[10px] border-red-500/20 animate-pulse"></div>
-          <div className="bg-darker border-2 border-red-500 p-8 rounded-3xl shadow-[0_0_100px_rgba(239,68,68,0.5)] flex flex-col items-center text-center max-w-md animate-bounce-slow">
-            <ShieldAlert className="w-16 h-16 text-red-500 mb-4 animate-pulse" />
-            <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Sentinel Protocol: Active</h2>
-            <p className="text-red-400 font-bold text-sm uppercase tracking-widest">Autonomous Counter-Measure Engaged</p>
-            <div className="mt-6 px-4 py-2 bg-red-500 text-white font-black text-xs rounded-full">
-              AUTO-BLOCKING HIGH-RISK VECTORS
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <div className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6 relative overflow-x-hidden">
         {/* Top Guided Intelligence Header */}
@@ -268,20 +285,7 @@ export default function Dashboard() {
         </div>
 
         <div className="flex gap-6 relative">
-          {/* Fraud Attack Banner */}
-          {attackBanner && (
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 animate-slide-in w-full max-w-2xl">
-              <div className="bg-red-500/20 border-2 border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.4)] px-6 py-4 rounded-xl flex items-center justify-between backdrop-blur-md">
-                <div className="flex items-center gap-4">
-                  <AlertTriangle className="text-red-500 w-8 h-8 animate-pulse" />
-                  <div>
-                    <h3 className="font-black text-red-500 tracking-widest uppercase text-lg">Fraud Velocity Attack Detected</h3>
-                    <p className="text-red-400/80 text-sm font-mono mt-1">SENTINEL Engine triggering autonomous block protocol.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col gap-6 w-full">
@@ -293,24 +297,7 @@ export default function Dashboard() {
               </p>
             </div>
 
-            {/* Dynamic AI Insight Banner */}
-            <div className={`border rounded-xl p-4 flex items-center gap-4 transition-all duration-500 ${globalScore > 80 ? 'bg-red-500/20 border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.2)]' : globalScore > 40 ? 'bg-orange-500/10 border-orange-500/30' : 'bg-primary/10 border-primary/30'}`}>
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${globalScore > 80 ? 'bg-red-500/20' : 'bg-primary/20'}`}>
-                {globalScore > 80 ? '🛡️' : globalScore > 40 ? '⚠️' : '🧠'}
-              </div>
-              <div>
-                <div className={`text-xs font-black uppercase tracking-widest mb-1 ${globalScore > 80 ? 'text-red-400' : 'text-primary'}`}>
-                  Autonomous Intelligence Status
-                </div>
-                <span className={`text-sm font-bold tracking-wide ${globalScore > 80 ? 'text-red-100' : 'text-gray-200'}`}>
-                  {globalScore > 80 
-                    ? 'SENTINEL PROTOCOL: High-velocity fraud attack intercepted. Auto-blocking 98.4% of high-risk vectors.' 
-                    : globalScore > 40 
-                      ? 'AI WARNING: Suspicious transaction patterns identified. Enhanced monitoring enabled across all nodes.' 
-                      : 'AI INSIGHT: System ecosystem stable. Neural engine operating at peak efficiency with no threats detected.'}
-                </span>
-              </div>
-            </div>
+
 
             {/* Top Metrics Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
