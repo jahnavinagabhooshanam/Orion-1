@@ -19,61 +19,83 @@ router.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', ts: Date.now() });
 });
 
-// Process single transaction logic
+// ─── Fallback ML scorer (used when ML engine is unreachable) ─────────────────
+const fallbackScore = () => {
+  const risk_score = Math.random() * 100;
+  return {
+    risk_score,
+    is_anomaly: risk_score >= 70,
+    reason: risk_score >= 70 ? 'High risk pattern detected by fallback engine.' : 'Standard transaction pattern.',
+    features_contribution: {
+      'Unusual location': Math.random() * 50 + 10,
+      'High amount': Math.random() * 30 + 5,
+      'Suspicious pattern': Math.random() * 40 + 5,
+    },
+    confidence_level: Math.floor(Math.random() * 20) + 80,
+  };
+};
+
+// ─── Batch ML call: one HTTP request for ALL transactions ────────────────────
+// This is the key optimisation — avoids N round-trips to the ML engine.
+const batchMLPredict = async (txList) => {
+  try {
+    const mlResponse = await axios.post(
+      `${process.env.ML_ENGINE_URL}/predict-batch`,
+      { transactions: txList },
+      { timeout: 4000 }  // 4 s max — fall back instantly if Render is cold
+    );
+    // Build a lookup map: transaction_id → prediction
+    const map = {};
+    for (const r of mlResponse.data.results) {
+      map[r.transaction_id] = r;
+    }
+    return map;
+  } catch (err) {
+    console.warn('ML Engine batch call failed, using fallback for all rows:', err.message);
+    return null; // signals caller to use per-row fallback
+  }
+};
+
+// ─── Save + broadcast a single transaction ───────────────────────────────────
+const saveAndBroadcast = async (txData, mlData) => {
+  const { risk_score, is_anomaly, reason, features_contribution, confidence_level } = mlData;
+
+  let status = 'ALLOW';
+  if (risk_score >= 70) status = 'BLOCK TRANSACTION';
+  else if (risk_score >= 40) status = 'FLAG FOR REVIEW';
+
+  const transaction = new Transaction({
+    ...txData,
+    risk_score,
+    is_anomaly,
+    status,
+    anomaly_reason: reason,
+    features_contribution,
+    confidence_level,
+  });
+
+  await transaction.save();
+
+  if (ioInstance) {
+    ioInstance.emit('new_transaction', transaction);
+    if (is_anomaly) ioInstance.emit('new_anomaly', transaction);
+  }
+
+  return transaction;
+};
+
+// ─── Process single transaction (used for simulations / real-time) ───────────
 const processTransaction = async (txData) => {
   try {
-    // Expected txData: transaction_id, amount, timestamp, location, user_id
-    let mlData = {};
+    let mlData;
     try {
-      const mlResponse = await axios.post(`${process.env.ML_ENGINE_URL}/predict`, txData);
+      const mlResponse = await axios.post(`${process.env.ML_ENGINE_URL}/predict`, txData, { timeout: 4000 });
       mlData = mlResponse.data;
     } catch (err) {
       console.warn('ML Engine unreachable, using fallback simulation data.');
-      // Fallback logic for hackathon stability
-      const risk_score = Math.random() * 100;
-      mlData = {
-        risk_score,
-        is_anomaly: risk_score >= 70,
-        reason: risk_score >= 70 ? 'High risk pattern detected by fallback engine.' : 'Standard transaction pattern.',
-        features_contribution: {
-          'Unusual location': Math.random() * 50 + 10,
-          'High amount': Math.random() * 30 + 5,
-          'Suspicious pattern': Math.random() * 40 + 5
-        },
-        confidence_level: Math.floor(Math.random() * 20) + 80
-      };
+      mlData = fallbackScore();
     }
-    const { risk_score, is_anomaly, reason, features_contribution, confidence_level } = mlData;
-
-    let status = 'ALLOW';
-    if (risk_score >= 70) status = 'BLOCK TRANSACTION';
-    else if (risk_score >= 40) status = 'FLAG FOR REVIEW';
-
-    const transaction = new Transaction({
-      ...txData,
-      risk_score,
-      is_anomaly,
-      status,
-      anomaly_reason: reason,
-      features_contribution,
-      confidence_level,
-    });
-
-    // Artificial delay for realistic AI processing feel (300-500ms)
-    const processingDelay = Math.floor(Math.random() * 200) + 300;
-    await new Promise(r => setTimeout(r, processingDelay));
-
-    await transaction.save();
-
-    // Broadcast
-    if (ioInstance) {
-      ioInstance.emit('new_transaction', transaction);
-      if (is_anomaly) {
-        ioInstance.emit('new_anomaly', transaction);
-      }
-    }
-
-    return transaction;
+    return await saveAndBroadcast(txData, mlData);
   } catch (error) {
     console.error('Error processing transaction:', error.message);
     throw error;
@@ -146,16 +168,19 @@ router.post('/upload', upload.single('file'), (req, res) => {
         errors.push(`Auto-correction applied to map aliases on ${autoCorrections} rows.`);
       }
 
-      const processed = [];
-      // Process in chunks of 10 to significantly speed up ingestion while maintaining stability
-      for (let i = 0; i < results.length; i += 10) {
-        const chunk = results.slice(i, i + 10);
-        const promises = chunk.map(item => processTransaction(item).catch(() => null));
-        const resolved = await Promise.all(promises);
-        for (const tx of resolved) {
-          if (tx) processed.push(tx);
-        }
-      }
+      // ── FAST PATH: one ML call for the entire batch ──────────────────────────
+      // batchMLPredict sends all rows to /predict-batch in a single HTTP request,
+      // cutting ML latency from O(n) to O(1).  Falls back to per-row scores on timeout.
+      const mlMap = await batchMLPredict(results);
+
+      // ── Save all rows to MongoDB in parallel ─────────────────────────────────
+      const rawResults = await Promise.all(
+        results.map(item => {
+          const mlData = (mlMap && mlMap[item.transaction_id]) ? mlMap[item.transaction_id] : fallbackScore();
+          return saveAndBroadcast(item, mlData).catch(() => null);
+        })
+      );
+      const processed = rawResults.filter(Boolean);
 
       res.json({ message: `Processed ${processed.length} transactions successfully.`, count: processed.length, errors });
     })

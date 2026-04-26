@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Network, Target, BrainCircuit, ShieldAlert, Activity } from 'lucide-react';
+import { X, Network, Target, BrainCircuit, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function ExplainablePanel({ transaction, onClose }) {
@@ -56,19 +56,6 @@ export default function ExplainablePanel({ transaction, onClose }) {
             </div>
           </div>
 
-          {/* Action Taken */}
-          <div>
-            <h3 className="text-sm uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-2">
-              <ShieldAlert size={16} /> Autonomous Action
-            </h3>
-            <div className={`p-4 rounded-lg border font-black text-center tracking-widest text-lg ${
-              transaction.status === 'BLOCK TRANSACTION' || (transaction.risk_score > 70) ? 'bg-red-500/20 border-red-500/50 text-red-400 animate-pulse' :
-              transaction.status === 'FLAG FOR REVIEW' ? 'bg-orange-500/20 border-orange-500/50 text-orange-400' :
-              'bg-green-500/20 border-green-500/50 text-green-400'
-            }`}>
-              {transaction.risk_score > 70 ? 'BLOCK TRANSACTION' : transaction.status}
-            </div>
-          </div>
 
           {/* Reason */}
           <div>
@@ -127,7 +114,7 @@ export default function ExplainablePanel({ transaction, onClose }) {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm uppercase tracking-widest text-gray-500 flex items-center gap-2">
-                  <ShieldAlert size={16} /> Decision Override
+                  <Network size={16} /> Decision Override
                 </h3>
                 <p className="text-[10px] text-gray-500 mt-1 italic">Human-in-the-loop validation protocol</p>
               </div>
@@ -136,7 +123,6 @@ export default function ExplainablePanel({ transaction, onClose }) {
                 <div className="flex gap-3">
                   <button 
                     onClick={() => {
-                      alert('SENTINEL: Manual Override Sequence Initiated. Transaction whitelist updated.');
                       onClose();
                     }}
                     className="px-6 py-2 bg-primary hover:bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-lg transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)]"
